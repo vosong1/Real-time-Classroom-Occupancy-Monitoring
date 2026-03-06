@@ -1,31 +1,39 @@
-from ultralytics import YOLO
 import cv2
+from ultralytics import YOLO
 
-# sửa đường dẫn best.pt theo đúng runs của bạn
-model = YOLO(r"runs\detect\train\weights\best.pt")
+MODEL_PATH = r"runs/detect/train/weights/best.pt"
+PERSON_CLASS_ID = 0
+CONF = 0.25
+THRESHOLD = 30  # tuỳ lớp
 
-cap = cv2.VideoCapture(0)  # webcam
+model = YOLO(MODEL_PATH)
+
+cap = cv2.VideoCapture(0)
 
 while True:
-    ret, frame = cap.read()
-    if not ret:
+    ok, frame = cap.read()
+    if not ok:
         break
 
-    results = model(frame, conf=0.25, verbose=False)
+    results = model.predict(frame, conf=CONF, verbose=False)[0]
 
-    person = chair = backpack = 0
-    for r in results:
-        cls = r.boxes.cls
-        for c in cls:
-            c = int(c)
-            if c == 0: person += 1
-            elif c == 1: chair += 1
-            elif c == 2: backpack += 1
+    count_person = 0
+    for b in results.boxes:
+        cls = int(b.cls[0])
+        if cls == PERSON_CLASS_ID:
+            count_person += 1
 
-    cv2.putText(frame, f"Person: {person}  Chair: {chair}  Backpack: {backpack}",
-                (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    if count_person == 0:
+        status = "EMPTY"
+    elif count_person > THRESHOLD:
+        status = "OVERCROWDED"
+    else:
+        status = "OCCUPIED"
 
-    cv2.imshow("YOLOv8 Count", frame)
+    cv2.putText(frame, f"Persons: {count_person} | {status}", (20, 40),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+    cv2.imshow("Occupancy", frame)
     if cv2.waitKey(1) & 0xFF == 27:  # ESC
         break
 
