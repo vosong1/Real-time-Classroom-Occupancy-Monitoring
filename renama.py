@@ -3,19 +3,13 @@ img_dir = r"D:\Real-time-Classroom-Occupancy-Monitoring\dataset\images\val"
 label_dir = r"D:\Real-time-Classroom-Occupancy-Monitoring\dataset\labels\val"
 images = sorted(os.listdir(img_dir))
 count = 1
-for img in images:
-    
-    old_img_path = os.path.join(img_dir, img)
-    
+for img in images: 
+    old_img_path = os.path.join(img_dir, img)  
     if not img.endswith(".jpg"):
         continue
-
     new_name = f"coco_{count:06d}.jpg"
     new_img_path = os.path.join(img_dir, new_name)
-
     os.rename(old_img_path, new_img_path)
-
-    # đổi label
     old_label = img.replace(".jpg", ".txt")
     old_label_path = os.path.join(label_dir, old_label)
 
