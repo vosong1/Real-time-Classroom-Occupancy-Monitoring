@@ -1,108 +1,11 @@
+dataset/images/
+dataset/labels/
+
+weights/
+
+*.weights
+*.pt
+*.onnx
 
 __pycache__/
-*.py[cod]
-*$py.class
-*.pyo
-*.pyd
-
-# Virtual env
-.venv/
-venv/
-env/
-ENV/
-.python-version
-
-# Pip / build
-pip-wheel-metadata/
-build/
-dist/
-*.egg-info/
-.eggs/
-
-# Jupyter
-.ipynb_checkpoints/
-
-# Logs
-*.log
-
-# =========================
-# OS / Editor
-# =========================
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# VS Code
-.vscode/
-!.vscode/settings.json
-!.vscode/extensions.json
-!.vscode/launch.json
-!.vscode/tasks.json
-
-# JetBrains
-.idea/
-
-# =========================
-# YOLO / CV outputs
-# =========================
-runs/
-wandb/
-mlruns/
-*.pt
-*.pth
-*.onnx
-*.engine
-*.torchscript
-*.tflite
-
-# Darknet / YOLOv3 outputs
-backup/
-*.weights
-
-# Checkpoints / temp
-checkpoints/
-outputs/
-tmp/
-temp/
-
-# =========================
-# Datasets (KHÔNG đẩy data lên git)
-# =========================
-dataset*/
-data*/
-datasets/
-coco*/
-train2017/
-val2017/
-test2017/
-annotations/
-filtered/
-images/
-labels/
-
-# Large archives / media
-*.zip
-*.7z
-*.rar
-*.tar
-*.tar.gz
-*.tgz
-
-*.mp4
-*.avi
-*.mov
-*.mkv
-
-# Numpy / cache
-*.npy
-*.npz
-*.pkl
-*.pickle
-
-# =========================
-# Local configs / secrets
-# =========================
-*.env
-.env
-.env.*
-config.local.*
+*.pyc
