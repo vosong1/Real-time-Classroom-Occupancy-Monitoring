@@ -1,11 +1,11 @@
-dataset/images/
-dataset/labels/
-
+dataset/
 weights/
-
+run/
 *.weights
 *.pt
 *.onnx
 
 __pycache__/
 *.pyc
+darknet53.conv.74darknet53.conv.74
+darknet53.conv.74

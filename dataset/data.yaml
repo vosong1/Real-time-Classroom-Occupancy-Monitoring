@@ -1,8 +1,8 @@
-path: dataset_yolo
-train: images/train
-val: images/val
+path: D:/Real-time-Classroom-Occupancy-Monitoring
+train: dataset/train_5k.txt
+val: dataset/val_5k.txt
 
 names:
   0: person
   1: chair
-  2: backpack
+  2: bag
