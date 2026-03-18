@@ -12,6 +12,7 @@ with open(names) as f:
 # load model
 net = cv2.dnn.readNetFromDarknet(cfg, weights)
 
+
 layer_names = net.getLayerNames()
 output_layers = [layer_names[i - 1] for i in net.getUnconnectedOutLayers()]
 
