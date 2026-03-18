@@ -1,78 +1,116 @@
+import argparse
 import time
+from pathlib import Path
 import cv2
 import torch
 
-MODEL_PATH = "run/best.pt"
+def parse_args():
+    parser = argparse.ArgumentParser(description="Realtime camera inference on Jetson Orin")
+    parser.add_argument("--repo", type=str, default="yolov5", help="Path to local YOLOv5 repo")
+    parser.add_argument("--weights", type=str, default="run/best.pt", help="Path to model weights")
+    parser.add_argument("--source", type=str, default="0", help="Camera index like 0, or video path")
+    parser.add_argument("--imgsz", type=int, default=640, help="Inference image size")
+    parser.add_argument("--conf", type=float, default=0.4, help="Confidence threshold")
+    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--save", type=str, default="", help="Optional output video path")
+    return parser.parse_args()
 
-model = torch.hub.load(
-    "ultralytics/yolov5",
-    "custom",
-    path=MODEL_PATH,
-    force_reload=False
-)
 
-model.conf = 0.4
+def open_source(source: str):
+    if source.isdigit():
+        return cv2.VideoCapture(int(source))
+    return cv2.VideoCapture(source)
 
-cap = cv2.VideoCapture(0)
 
-if not cap.isOpened():
-    raise RuntimeError("Cannot open webcam")
+def ensure_writer(writer, save_path, frame, cap):
+    if not save_path:
+        return None
+    if writer is not None:
+        return writer
 
-prev_time = time.time()
+    out_path = Path(save_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+    h, w = frame.shape[:2]
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps <= 0:
+        fps = 20.0
 
-    results = model(frame)
-    labels = results.xyxy[0]
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    return cv2.VideoWriter(str(out_path), fourcc, fps, (w, h))
 
-    person_count = 0
 
-    for *box, conf, cls in labels:
-        x1, y1, x2, y2 = map(int, box)
-        cls = int(cls)
-        label_name = model.names[cls]
+def main():
+    args = parse_args()
 
-        if label_name == "person":
-            person_count += 1
-            color = (0, 255, 0)
-        elif label_name == "chair":
-            color = (255, 200, 0)
-        elif label_name in ["bag", "backpack"]:
-            color = (255, 0, 255)
-        else:
-            color = (200, 200, 200)
+    repo_path = Path(args.repo).resolve()
+    weights_path = Path(args.weights).resolve()
 
-        label = f"{label_name} {conf:.2f}"
+    model = torch.hub.load(
+        str(repo_path),
+        "custom",
+        path=str(weights_path),
+        source="local",
+        force_reload=False,
+    )
+    model.conf = args.conf
+    model.iou = 0.45
+    model.to(args.device)
 
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-        cv2.putText(
-            frame,
-            label,
-            (x1, max(20, y1 - 10)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            color,
-            2
-        )
+    cap = open_source(args.source)
+    if not cap.isOpened():
+        raise RuntimeError(f"Cannot open source: {args.source}")
 
-    now = time.time()
-    fps = 1.0 / max(now - prev_time, 1e-6)
-    prev_time = now
+    writer = None
+    prev_time = time.time()
 
-    cv2.rectangle(frame, (10, 10), (330, 90), (30, 30, 30), -1)
-    cv2.putText(frame, f"People: {person_count}", (20, 40),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-    cv2.putText(frame, f"FPS: {fps:.1f}", (20, 75),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-    cv2.imshow("Classroom Occupancy Monitor", frame)
+        results = model(frame, size=args.imgsz)
+        labels = results.xyxy[0]
 
-    key = cv2.waitKey(1) & 0xFF
-    if key == 27 or key == ord("q"):
-        break
+        person_count = 0
+        chair_count = 0
+        bag_count = 0
 
-cap.release()
-cv2.destroyAllWindows()
+        for *box, conf, cls in labels:
+            cls = int(cls)
+            class_name = model.names[cls]
+
+            if class_name == "person":
+                person_count += 1
+            elif class_name == "chair":
+                continue
+            elif class_name in ["bag", "backpack"]:
+                continue
+
+        rendered = results.render()[0].copy()
+
+        now = time.time()
+        fps = 1.0 / max(now - prev_time, 1e-6)
+        prev_time = now
+
+        cv2.rectangle(rendered, (10, 10), (430, 150), (30, 30, 30), -1)
+        cv2.putText(rendered, f"People: {person_count}", (20, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
+        cv2.imshow("Jetson Orin Camera Inference", rendered)
+        if args.save:
+            writer = ensure_writer(writer, args.save, rendered, cap)
+            if writer is not None:
+                writer.write(rendered)
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == 27 or key == ord("q"):
+            break
+
+    cap.release()
+    if writer is not None:
+        writer.release()
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()
