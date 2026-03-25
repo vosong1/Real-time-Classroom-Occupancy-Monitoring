@@ -1,3 +1,4 @@
 opencv-python
 numpy
 tqdm
+python infer_cam.py --repo ./yolov5 --weights ./best.pt --source 0 --device cuda --imgsz 640
