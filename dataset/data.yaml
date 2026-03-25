@@ -1,6 +1,6 @@
 path: D:/Real-time-Classroom-Occupancy-Monitoring
-train: dataset/train_5k.txt
-val: dataset/val_5k.txt
+train: dataset/train.txt
+val: dataset/val.txt
 
 names:
   0: person

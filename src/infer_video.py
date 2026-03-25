@@ -1,8 +1,11 @@
 import argparse
 import time
 from pathlib import Path
+
 import cv2
+import numpy as np
 import torch
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Realtime camera inference on Jetson Orin")
@@ -11,15 +14,19 @@ def parse_args():
     parser.add_argument("--source", type=str, default="0", help="Camera index like 0, or video path")
     parser.add_argument("--imgsz", type=int, default=640, help="Inference image size")
     parser.add_argument("--conf", type=float, default=0.4, help="Confidence threshold")
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--device", type=str, default="cuda", help="cuda or cpu")
     parser.add_argument("--save", type=str, default="", help="Optional output video path")
     return parser.parse_args()
 
 
 def open_source(source: str):
     if source.isdigit():
-        return cv2.VideoCapture(int(source))
-    return cv2.VideoCapture(source)
+        cap = cv2.VideoCapture(int(source))
+    else:
+        cap = cv2.VideoCapture(source)
+
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    return cap
 
 
 def ensure_writer(writer, save_path, frame, cap):
@@ -40,12 +47,28 @@ def ensure_writer(writer, save_path, frame, cap):
     return cv2.VideoWriter(str(out_path), fourcc, fps, (w, h))
 
 
+def get_device(device_arg: str):
+    if device_arg.lower() == "cuda" and torch.cuda.is_available():
+        return "cuda"
+    return "cpu"
+
+
+def warmup_model(model, imgsz):
+    dummy = np.zeros((imgsz, imgsz, 3), dtype=np.uint8)
+    _ = model(dummy, size=imgsz)
+
+
 def main():
     args = parse_args()
+
+    torch.backends.cudnn.benchmark = True
 
     repo_path = Path(args.repo).resolve()
     weights_path = Path(args.weights).resolve()
 
+    device = get_device(args.device)
+
+    t0 = time.time()
     model = torch.hub.load(
         str(repo_path),
         "custom",
@@ -55,7 +78,13 @@ def main():
     )
     model.conf = args.conf
     model.iou = 0.45
-    model.to(args.device)
+    model.to(device)
+
+    # Warmup để frame đầu đỡ chậm
+    warmup_model(model, args.imgsz)
+
+    load_time = time.time() - t0
+    print(f"[INFO] Model loaded on {device} in {load_time:.2f}s")
 
     cap = open_source(args.source)
     if not cap.isOpened():
@@ -67,25 +96,19 @@ def main():
     while True:
         ret, frame = cap.read()
         if not ret:
+            print("[INFO] End of stream or cannot read frame.")
             break
 
         results = model(frame, size=args.imgsz)
         labels = results.xyxy[0]
 
         person_count = 0
-        chair_count = 0
-        bag_count = 0
 
         for *box, conf, cls in labels:
             cls = int(cls)
             class_name = model.names[cls]
-
             if class_name == "person":
                 person_count += 1
-            elif class_name == "chair":
-                continue
-            elif class_name in ["bag", "backpack"]:
-                continue
 
         rendered = results.render()[0].copy()
 
@@ -93,10 +116,28 @@ def main():
         fps = 1.0 / max(now - prev_time, 1e-6)
         prev_time = now
 
-        cv2.rectangle(rendered, (10, 10), (430, 150), (30, 30, 30), -1)
-        cv2.putText(rendered, f"People: {person_count}", (20, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
+        cv2.rectangle(rendered, (10, 10), (320, 100), (30, 30, 30), -1)
+        cv2.putText(
+            rendered,
+            f"People: {person_count}",
+            (20, 45),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.0,
+            (0, 255, 0),
+            2,
+        )
+        cv2.putText(
+            rendered,
+            f"FPS: {fps:.1f}",
+            (20, 85),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            (0, 255, 255),
+            2,
+        )
+
         cv2.imshow("Jetson Orin Camera Inference", rendered)
+
         if args.save:
             writer = ensure_writer(writer, args.save, rendered, cap)
             if writer is not None:
