@@ -1,20 +1,12 @@
 from pathlib import Path
-
 src = Path("configs/yolov3.cfg")
 dst = Path("configs/yolov3-classroom.cfg")
-
 text = src.read_text(encoding="utf-8")
-
-# sửa phần đầu
 text = text.replace("batch=1", "batch=64", 1)
 text = text.replace("subdivisions=1", "subdivisions=16", 1)
 text = text.replace("max_batches = 500200", "max_batches=6000")
 text = text.replace("steps=400000,450000", "steps=4800,5400")
-
-# sửa classes
 text = text.replace("classes=80", "classes=3")
-
-# sửa filters trước yolo
 count = 0
 parts = text.split("[yolo]")
 new_parts = [parts[0]]

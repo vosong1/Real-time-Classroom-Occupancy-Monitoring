@@ -4,31 +4,20 @@ import numpy as np
 import os
 from pathlib import Path
 
-# =========================
-# CONFIG (sửa tại đây)
-# =========================
 MODEL_PATH = "run/best.pt"
 TEST_DIR = "dataset/images/test"
 GT_FILE = "dataset/gt.txt"
 
-# =========================
-# LOAD MODEL YOLOv5
-# =========================
 model = torch.hub.load("yolov5", "custom", path=MODEL_PATH, source="local")
 model.conf = 0.4
 
-# =========================
-# LOAD GT
-# =========================
+
 gt_dict = {}
 with open(GT_FILE, "r") as f:
     for line in f:
         name, count = line.strip().split()
         gt_dict[name] = int(count)
 
-# =========================
-# LOOP TEST
-# =========================
 y_true = []
 y_pred = []
 
@@ -58,11 +47,9 @@ for img_path in image_paths:
     else:
         print(f"⚠️ Missing GT: {img_name}")
 
-# =========================
-# CALCULATE MAE
-# =========================
+
 if len(y_true) == 0:
-    print("❌ No valid data → MAE = NaN")
+    print("No valid data → MAE = NaN")
 else:
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
